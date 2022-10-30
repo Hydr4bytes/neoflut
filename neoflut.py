@@ -1,40 +1,50 @@
 # a simpel pixelflut client
 
+from re import S
 import socket
+import time
+from tkinter import Canvas
 from venv import create
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import random
 # import threading
 from multiprocessing import Process
 import os
 import configparser
+import colorsys
+from math import *
+
+gradient = {}
+
+def hsv_to_rgb(h, s, v):
+    if s == 0.0: v*=255; return (v, v, v)
+    i = int(h*6.)
+    f = (h*6.)-i; p,q,t = int(255*(v*(1.-s))), int(255*(v*(1.-s*f))), int(255*(v*(1.-s*(1.-f)))); v*=255; i%=6
+    if i == 0: return (v, t, p)
+    if i == 1: return (q, v, p)
+    if i == 2: return (p, v, t)
+    if i == 3: return (p, q, v)
+    if i == 4: return (t, p, v)
+    if i == 5: return (v, p, q)
 
 # get a image and convert it to a random list of pixels
 def getpixels(imagepath, screensize, center=False, fill=False):
+    canvas = screensize
+
     image = Image.open(imagepath)
-    # check if it is a image
-    if image.format == None:
-        print('not a image')
-        return
-    canvas = (200, 200)
-    if fill:
-        canvas = screensize
-        offset = (0, 0)
-    else:
-        if center:
-            offset = ((screensize[0] - image.size[0]/2) // 2, (screensize[1] - image.size[1]/2) // 2)
-        else:
-            offset = (random.randint(0, screensize[0] - canvas[0]), random.randint(0, screensize[1] - canvas[1]))
-            # offset = (200, 150)
-    # screensize = (800, 600)
     resized_image = image.resize(canvas)
     pix = resized_image.convert('RGB').load()
+
     pixels = []
     for x in range(canvas[0]):
         for y in range(canvas[1]):
-            r, g, b = pix[x,y]
-            # pixels.append((x, y, r, g, b))
-            pixels.append((x+offset[0], y+offset[1], r, g, b))
+            if(x % 2 == 0):
+                (r, g, b) = pix[x,y]
+                pixels.append((x, y, r, g, b))
+            else:
+                (r, g, b) = gradient[y]
+                pixels.append((x, y, int(r), int(g), int(b)))
+
     # randomize the list
     random.shuffle(pixels)
     return pixels
@@ -43,7 +53,7 @@ def strings(pixels):
     # make a list of strings to send
     lines = []
     for pixel in pixels:
-        line = "PX %s %s %s%s%sff\n" % (pixel[0], pixel[1], '%0*x' % (2,pixel[2]), '%0*x' % (2,pixel[3]), '%0*x' % (2,pixel[4]))
+        line = "PX %s %s %s%s%s\n" % (pixel[0], pixel[1], '%0*x' % (2,pixel[2]), '%0*x' % (2,pixel[3]), '%0*x' % (2,pixel[4]))
         lines.append(line)
     return lines
 
@@ -84,6 +94,10 @@ def main():
     centering = int(config['center'])
     fill = int(config['fill'])
     screensize = (screenx, screeny)
+
+    for i in range(screensize[1]):
+        gradient[i] = hsv_to_rgb(i/screensize[1], 1, 1)
+
     # get pixels from image
     pixels = getpixels(imagepath, screensize, centering, fill)
     # make a list of strings to send
